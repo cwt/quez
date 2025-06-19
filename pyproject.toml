@@ -1,5 +1,5 @@
 [project]
-name = "qzq"
+name = "quez"
 version = "0.0.1"
 description = "Pluggable, compressed in-memory queues for both sync and asyncio applications."
 authors = [
