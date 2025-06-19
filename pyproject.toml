@@ -1,0 +1,32 @@
+[project]
+name = "qzq"
+version = "0.0.1"
+description = "Pluggable, compressed in-memory queues for both sync and asyncio applications."
+authors = [
+    {name = "Chaiwat Suttipongsakul",email = "cwt@bashell.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = []
+
+[tool.poetry]
+homepage = "https://sr.ht/~cwt/qzq/"
+repository = "https://hg.sr.ht/~cwt/qzq"
+
+[tool.poetry.urls]
+"GitHub Mirror" = "https://github.com/cwt/qzq"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.15.0"
+black = "^25.1.0"
+pytest = "^8.3.0"
+pytest-asyncio = "^0.26.0"
+pytest-cov = "^6.1.0"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

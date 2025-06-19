@@ -1,0 +1,7 @@
+syntax: glob
+
+.coverage
+.mypy_cache
+.pytest_cache
+dist
+
