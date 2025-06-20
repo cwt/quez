@@ -1,6 +1,6 @@
 [project]
 name = "quez"
-version = "0.0.2"
+version = "0.1.0"
 description = "Pluggable, compressed in-memory queues for both sync and asyncio applications."
 authors = [
     {name = "Chaiwat Suttipongsakul",email = "cwt@bashell.com"}
@@ -10,12 +10,17 @@ readme = "README.md"
 requires-python = ">=3.11,<4.0"
 dependencies = []
 
+[project.optional-dependencies]
+zstd = ["zstandard"]
+lzo = ["python-lzo"]
+all = ["zstandard", "python-lzo"]
+
 [tool.poetry]
-homepage = "https://sr.ht/~cwt/qzq/"
-repository = "https://hg.sr.ht/~cwt/qzq"
+homepage = "https://sr.ht/~cwt/quez/"
+repository = "https://hg.sr.ht/~cwt/quez"
 
 [tool.poetry.urls]
-"GitHub Mirror" = "https://github.com/cwt/qzq"
+"GitHub Mirror" = "https://github.com/cwt/quez"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.15.0"
@@ -23,6 +28,9 @@ black = "^25.1.0"
 pytest = "^8.3.0"
 pytest-asyncio = "^0.26.0"
 pytest-cov = "^6.1.0"
+# Add the optional dependencies for testing
+zstandard = {version = "*", optional = true}
+python-lzo = {version = "*", optional = true}
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

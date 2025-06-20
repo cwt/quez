@@ -1,13 +1,13 @@
-# **quez**
+# **Quez**
 
-**quez** is a pluggable compressed queue for high-performance, memory-efficient buffering in both synchronous and asynchronous Python applications.
+**Quez** is a high-performance, memory-efficient, pluggable compressed queue for buffering data in both synchronous and asynchronous Python applications.
 
-This library provides a solution for managing large volumes of in-memory data, such as in streaming data pipelines, logging systems, or high-throughput servers. It transparently compresses objects as they enter a queue and decompresses them upon retrieval, drastically reducing the memory footprint of in-flight data while preserving a simple, familiar queue interface.
+This library excels at managing large volumes of in-memory data, making it perfect for streaming data pipelines, logging systems, or high-throughput servers. It transparently compresses objects as they enter the queue and decompresses them upon retrieval, slashing the memory footprint of in-flight data while maintaining a simple, familiar queue interface.
 
 ### Key Features
 
-* **Dual Sync and Async Interfaces**: Provides both a thread-safe `quez.CompressedQueue` for multi-threaded applications and an `quez.AsyncCompressedQueue` for `asyncio`, both sharing a consistent API.
-* **Pluggable Compression Strategies**: Ships with built-in, interchangeable strategies for zlib (default), bz2, and lzma. The architecture allows you to easily provide your own custom compression, serialization, or encryption algorithms.
-* **Built-in Stats for Observability**: Monitor the queue's state in real-time with the `.stats` property, which provides item count, total raw and compressed data sizes, and the live compression ratio.
-* **Designed for Performance**: In the `asyncio` version, CPU-bound compression and decompression tasks are automatically run in a background thread pool to keep the event loop unblocked and your application responsive.
-* **Reduces Memory Pressure**: Ideal for absorbing large, temporary bursts of data without ballooning memory usage, preventing potential swapping and performance degradation.
+- **Dual Sync and Async Interfaces**: Offers a thread-safe `quez.CompressedQueue` for multi-threaded applications and an `quez.AsyncCompressedQueue` for `asyncio`, both with a consistent API.
+- **Pluggable Compression Strategies**: Includes built-in support for zlib (default), bz2, and lzma, with optional zstd and lzo. The flexible architecture lets you plug in custom compression, serialization, or encryption algorithms.
+- **Real-Time Observability**: Track queue performance with the `.stats` property, which reports item count, raw and compressed data sizes, and live compression ratio.
+- **Optimized for Performance**: In the `asyncio` version, CPU-intensive compression and decompression tasks run in a background thread pool, keeping the event loop responsive.
+- **Memory Efficiency**: Handles large, temporary data bursts without excessive memory usage, preventing swapping and performance degradation.

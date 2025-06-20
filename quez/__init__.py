@@ -1,8 +1,8 @@
 """
 quez: Pluggable, compressed in-memory queues for sync and asyncio applications.
 """
-from importlib.metadata import version, PackageNotFoundError
-from typing import List
+
+from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__: str = version("quez")
@@ -11,13 +11,14 @@ except PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
 from .compressors import (
-    Compressor,
-    ZlibCompressor,
     Bz2Compressor,
+    Compressor,
     LzmaCompressor,
     NullCompressor,
+    ZlibCompressor,
 )
-from .queues import CompressedQueue, AsyncCompressedQueue
+from .queues import AsyncCompressedQueue, CompressedQueue
+
 
 __all__ = [
     # Core Queue Classes
@@ -30,3 +31,18 @@ __all__ = [
     "LzmaCompressor",
     "NullCompressor",
 ]
+
+# Conditionally expose optional compressors if they are available
+try:
+    from .compressors import ZstdCompressor
+
+    __all__.append("ZstdCompressor")
+except ImportError:
+    pass
+
+try:
+    from .compressors import LzoCompressor
+
+    __all__.append("LzoCompressor")
+except ImportError:
+    pass
