@@ -3,6 +3,7 @@ Core implementation of the synchronous and asynchronous compressed queues.
 """
 
 import asyncio
+import collections
 import queue
 import threading
 from dataclasses import dataclass
@@ -17,7 +18,9 @@ from .compressors import (
 
 # --- Generic Type Variables ---
 QItem = TypeVar("QItem")
-QueueType = TypeVar("QueueType", bound=queue.Queue | asyncio.Queue)
+QueueType = TypeVar(
+    "QueueType", bound=queue.Queue | asyncio.Queue | collections.deque
+)
 
 
 # --- Internal data structure for queue items ---
@@ -100,15 +103,30 @@ class _BaseCompressedQueue(Generic[QItem, QueueType]):
 
     def qsize(self) -> int:
         """Return the approximate size of the queue."""
-        return self._queue.qsize()
+        if isinstance(self._queue, (queue.Queue, asyncio.Queue)):
+            return self._queue.qsize()
+        else:
+            raise NotImplementedError(
+                "qsize() is not implemented for this queue type."
+            )
 
     def empty(self) -> bool:
         """Return True if the queue is empty, False otherwise."""
-        return self._queue.empty()
+        if isinstance(self._queue, (queue.Queue, asyncio.Queue)):
+            return self._queue.empty()
+        else:
+            raise NotImplementedError(
+                "empty() is not implemented for this queue type."
+            )
 
     def full(self) -> bool:
         """Return True if the queue is full, False otherwise."""
-        return self._queue.full()
+        if isinstance(self._queue, (queue.Queue, asyncio.Queue)):
+            return self._queue.full()
+        else:
+            raise NotImplementedError(
+                "full() is not implemented for this queue type."
+            )
 
 
 # --- 2. The Asynchronous Implementation ---
@@ -246,3 +264,116 @@ class CompressedQueue(
     def join(self) -> None:
         """Block until all items in the queue have been gotten and processed."""
         self._queue.join()
+
+
+# --- 4. The Synchronous Deque Implementation ---
+class CompressedDeque(
+    _BaseCompressedQueue[QItem, "collections.deque[_QueueElement]"]
+):
+    """
+    A thread-safe, synchronous double-ended queue (deque) that transparently
+    compresses any picklable object using pluggable compression and serialization
+    strategies. It supports operations from both ends and is suitable for
+    scenarios requiring FIFO, LIFO, or mixed access patterns.
+    """
+
+    def __init__(
+        self,
+        maxsize: int | None = None,
+        *,
+        compressor: Compressor | None = None,
+        serializer: Serializer | None = None,
+    ):
+        # Use collections.deque with maxlen for bounded size
+        super().__init__(
+            collections.deque(maxlen=maxsize), compressor, serializer
+        )
+        # Additional lock for deque operations, as deque is atomic but we need
+        # to ensure consistency with stats and multi-step ops.
+        self._lock = threading.Lock()
+
+    def qsize(self) -> int:
+        """Return the current size of the deque."""
+        with self._lock:
+            return len(self._queue)
+
+    def empty(self) -> bool:
+        """Return True if the deque is empty, False otherwise."""
+        with self._lock:
+            return len(self._queue) == 0
+
+    def full(self) -> bool:
+        """Return True if the deque is full (reached maxlen), False otherwise."""
+        with self._lock:
+            return (
+                self._queue.maxlen is not None
+                and len(self._queue) == self._queue.maxlen
+            )
+
+    def append(self, item: QItem) -> None:
+        """Serialize, compress, and append an item to the right end of the deque."""
+        raw_bytes = self.serializer.dumps(item)
+        compressed_bytes = self.compressor.compress(raw_bytes)
+
+        element = _QueueElement(
+            compressed_data=compressed_bytes, raw_size=len(raw_bytes)
+        )
+
+        # Lock for stats update
+        with self._stats_lock:
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
+
+        # Lock for deque operation
+        with self._lock:
+            self._queue.append(element)
+
+    def appendleft(self, item: QItem) -> None:
+        """Serialize, compress, and append an item to the left end of the deque."""
+        raw_bytes = self.serializer.dumps(item)
+        compressed_bytes = self.compressor.compress(raw_bytes)
+
+        element = _QueueElement(
+            compressed_data=compressed_bytes, raw_size=len(raw_bytes)
+        )
+
+        # Lock for stats update
+        with self._stats_lock:
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
+
+        # Lock for deque operation
+        with self._lock:
+            self._queue.appendleft(element)
+
+    def pop(self) -> QItem:
+        """Pop an item from the right end, decompress, deserialize, and return it."""
+        # Lock for deque operation
+        with self._lock:
+            element = self._queue.pop()
+
+        # Lock for stats update
+        with self._stats_lock:
+            self._total_raw_size -= element.raw_size
+            self._total_compressed_size -= len(element.compressed_data)
+
+        raw_bytes = self.compressor.decompress(element.compressed_data)
+        item = self.serializer.loads(raw_bytes)
+
+        return item
+
+    def popleft(self) -> QItem:
+        """Pop an item from the left end, decompress, deserialize, and return it."""
+        # Lock for deque operation
+        with self._lock:
+            element = self._queue.popleft()
+
+        # Lock for stats update
+        with self._stats_lock:
+            self._total_raw_size -= element.raw_size
+            self._total_compressed_size -= len(element.compressed_data)
+
+        raw_bytes = self.compressor.decompress(element.compressed_data)
+        item = self.serializer.loads(raw_bytes)
+
+        return item

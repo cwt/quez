@@ -1,6 +1,6 @@
 [project]
 name = "quez"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pluggable, compressed in-memory queues for both sync and asyncio applications."
 authors = [
     {name = "Chaiwat Suttipongsakul",email = "cwt@bashell.com"}
