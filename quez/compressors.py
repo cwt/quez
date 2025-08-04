@@ -68,6 +68,7 @@ class ZlibCompressor:
     def __init__(self, level: int = -1) -> None:
         """
         Initializes the compressor with a specific compression level.
+
         The level can be between 0 (no compression) and 9 (best compression).
         If not specified, it defaults to -1, which means the default compression.
         """
@@ -88,6 +89,7 @@ class Bz2Compressor:
     def __init__(self, level: int = 9) -> None:
         """
         Initializes the compressor with a specific compression level.
+
         The level can be between 0 (no compression) and 9 (best compression).
         If not specified, it defaults to 9, which is the highest compression.
         """
@@ -108,6 +110,7 @@ class LzmaCompressor:
     def __init__(self, level: int = lzma.PRESET_DEFAULT) -> None:
         """
         Initializes the compressor with a specific preset level.
+
         The preset can be between 0 (no compression) and 9 (best compression).
         If not specified, it defaults to lzma.PRESET_DEFAULT.
         """
@@ -146,6 +149,7 @@ try:
         def __init__(self, level: int = 3) -> None:
             """
             Initializes the compressor with a specific compression level.
+
             The level can be between 1 (fastest) and 22 (best compression).
             If not specified, it defaults to 3, which is a good balance.
             """
@@ -174,6 +178,7 @@ try:
         def __init__(self, level: int = 1) -> None:
             """
             Initializes the compressor with a specific compression level.
+
             The level can be between 1 (fastest) and 9 (best compression).
             If not specified, it defaults to 1, which is the fastest.
             """
