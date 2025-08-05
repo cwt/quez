@@ -17,14 +17,21 @@ from .compressors import (
     NullCompressor,
     ZlibCompressor,
 )
-from .queues import AsyncCompressedQueue, CompressedQueue, CompressedDeque
-
+from .queues import (
+    AsyncCompressedQueue,
+    CompressedQueue,
+)
+from .deques import (
+    CompressedDeque,
+    AsyncCompressedDeque,
+)
 
 __all__ = [
     # Core Queue Classes
     "CompressedQueue",
     "AsyncCompressedQueue",
     "CompressedDeque",
+    "AsyncCompressedDeque",
     # Compressor Strategies
     "Compressor",
     "ZlibCompressor",
