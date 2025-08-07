@@ -186,6 +186,57 @@ async def run_async_benchmark(
     }
 
 
+def run_nowait_benchmark(
+    queue_class: Type[AsyncCompressedQueue | AsyncCompressedDeque],
+    compressor: Compressor,
+    data: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Runs a benchmark for a Quez data structure using _nowait methods."""
+    # For async classes, we need to initialize them within a running loop.
+    try:
+        loop = asyncio.get_running_loop()
+        q = queue_class(compressor=compressor)
+    except RuntimeError:
+        # If no loop is running, create one temporarily for initialization.
+        q = asyncio.run(_async_init_helper(queue_class, compressor))
+
+    # --- Benchmark Putting/Appending ---
+    put_start_time = time.perf_counter()
+    if isinstance(q, (AsyncCompressedQueue)):
+        for item in data:
+            q.put_nowait(item)
+    else:  # AsyncCompressedDeque
+        for item in data:
+            q.append_nowait(item)
+    put_end_time = time.perf_counter()
+
+    final_stats = q.stats
+
+    # --- Benchmark Getting/Popping ---
+    get_start_time = time.perf_counter()
+    if isinstance(q, (AsyncCompressedQueue)):
+        for _ in range(len(data)):
+            q.get_nowait()
+    else:  # AsyncCompressedDeque
+        for _ in range(len(data)):
+            q.popleft_nowait()
+    get_end_time = time.perf_counter()
+
+    put_duration = put_end_time - put_start_time
+    get_duration = get_end_time - get_start_time
+
+    return {
+        "put_throughput": len(data) / put_duration,
+        "get_throughput": len(data) / get_duration,
+        "stats": final_stats,
+    }
+
+
+async def _async_init_helper(queue_class, compressor):
+    """Helper to initialize async queues in a controlled event loop."""
+    return queue_class(compressor=compressor)
+
+
 # --- Main Execution ---
 
 
@@ -227,10 +278,26 @@ def main(num_items: int, data_size: int):
         )
         results.append(("AsyncCompressedDeque", comp_name, async_d_result))
 
+        # Async Queue (nowait)
+        async_q_nowait_result = run_nowait_benchmark(
+            AsyncCompressedQueue, compressor, sample_data
+        )
+        results.append(
+            ("AsyncCompressedQueue (nowait)", comp_name, async_q_nowait_result)
+        )
+
+        # Async Deque (nowait)
+        async_d_nowait_result = run_nowait_benchmark(
+            AsyncCompressedDeque, compressor, sample_data
+        )
+        results.append(
+            ("AsyncCompressedDeque (nowait)", comp_name, async_d_nowait_result)
+        )
+
     # --- Print Results Table ---
     print("\n--- Benchmark Results ---\n")
     header = (
-        f"{'Data Structure':<22} | {'Compressor':<18} | {'Put Throughput':>18} | "
+        f"{'Data Structure':<30} | {'Compressor':<18} | {'Put Throughput':>18} | "
         f"{'Get Throughput':>18} | {'Compressed Size':>18} | {'Ratio':>8}"
     )
     print(header)
@@ -248,7 +315,7 @@ def main(num_items: int, data_size: int):
         )
 
         print(
-            f"{name:<22} | {comp:<18} | {put_t:>18} | "
+            f"{name:<30} | {comp:<18} | {put_t:>18} | "
             f"{get_t:>18} | {size:>18} | {ratio:>8}"
         )
 
@@ -273,5 +340,12 @@ if __name__ == "__main__":
         help="Size of the data payload for each item, in bytes.",
     )
     args = parser.parse_args()
+
+    try:
+        import uvloop
+    except ImportError:
+        pass
+    else:
+        uvloop.install()  # Use uvloop for better performance with asyncio
 
     main(num_items=args.num_items, data_size=args.data_size)

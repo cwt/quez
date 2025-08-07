@@ -232,3 +232,67 @@ async def test_pop_popleft_empty_async(compressor: Compressor):
 
     with pytest.raises(IndexError, match="pop from an empty deque"):
         await q.popleft()
+
+
+# --- Nowait Method Tests ---
+@pytest.mark.asyncio
+async def test_append_pop_nowait_roundtrip(compressor: Compressor):
+    """Test a successful roundtrip using append_nowait and pop_nowait."""
+    q: AsyncCompressedDeque = AsyncCompressedDeque(compressor=compressor)
+    item = "test_item"
+    q.append_nowait(item)
+    retrieved_item = q.pop_nowait()
+    assert retrieved_item == item
+    assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_appendleft_popleft_nowait_roundtrip(compressor: Compressor):
+    """Test a successful roundtrip using appendleft_nowait and popleft_nowait."""
+    q: AsyncCompressedDeque = AsyncCompressedDeque(compressor=compressor)
+    item = "test_item"
+    q.appendleft_nowait(item)
+    retrieved_item = q.popleft_nowait()
+    assert retrieved_item == item
+    assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_pop_nowait_empty(compressor: Compressor):
+    """Test that pop_nowait() raises IndexError when the deque is empty."""
+    q: AsyncCompressedDeque = AsyncCompressedDeque(compressor=compressor)
+    with pytest.raises(IndexError, match="pop from an empty deque"):
+        q.pop_nowait()
+
+
+@pytest.mark.asyncio
+async def test_popleft_nowait_empty(compressor: Compressor):
+    """Test that popleft_nowait() raises IndexError when the deque is empty."""
+    q: AsyncCompressedDeque = AsyncCompressedDeque(compressor=compressor)
+    with pytest.raises(IndexError, match="pop from an empty deque"):
+        q.popleft_nowait()
+
+
+@pytest.mark.asyncio
+async def test_nowait_eviction(compressor: Compressor):
+    """Test that nowait append methods correctly evict items when full."""
+    q: AsyncCompressedDeque = AsyncCompressedDeque(maxsize=2, compressor=compressor)
+    q.append_nowait("item1")
+    q.append_nowait("item2")
+    assert q.full()
+
+    # This should evict "item1"
+    q.append_nowait("item3")
+    assert q.popleft_nowait() == "item2"
+    assert q.popleft_nowait() == "item3"
+    assert q.empty()
+
+    q.appendleft_nowait("item4")
+    q.appendleft_nowait("item5")
+    assert q.full()
+
+    # This should evict "item4"
+    q.appendleft_nowait("item6")
+    assert q.pop_nowait() == "item5"
+    assert q.pop_nowait() == "item6"
+    assert q.empty()

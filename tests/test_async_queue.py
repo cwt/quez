@@ -115,14 +115,31 @@ async def test_maxsize_blocking(compressor: Compressor):
 
 
 @pytest.mark.asyncio
-async def test_get_nowait(compressor: Compressor):
-    """Test that get_nowait() raises an exception when the queue is empty."""
-    # Note: AsyncCompressedQueue doesn't have `get_nowait`, this tests `get` on an empty queue
-    # The underlying asyncio.Queue's get() would just hang.
-    # A test for this scenario is more complex involving timeouts.
+async def test_get_nowait_empty(compressor: Compressor):
+    """Test that get_nowait() raises asyncio.QueueEmpty when the queue is empty."""
     q: AsyncCompressedQueue = AsyncCompressedQueue(compressor=compressor)
-    with pytest.raises(asyncio.TimeoutError):
-        await asyncio.wait_for(q.get(), timeout=0.01)
+    with pytest.raises(asyncio.QueueEmpty):
+        q.get_nowait()
+
+
+@pytest.mark.asyncio
+async def test_put_get_nowait_roundtrip(compressor: Compressor):
+    """Test a successful roundtrip using put_nowait and get_nowait."""
+    q: AsyncCompressedQueue = AsyncCompressedQueue(compressor=compressor)
+    item = "test_item"
+    q.put_nowait(item)
+    retrieved_item = q.get_nowait()
+    assert retrieved_item == item
+    assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_put_nowait_full(compressor: Compressor):
+    """Test that put_nowait() raises asyncio.QueueFull when the queue is full."""
+    q: AsyncCompressedQueue = AsyncCompressedQueue(maxsize=1, compressor=compressor)
+    q.put_nowait("full")
+    with pytest.raises(asyncio.QueueFull):
+        q.put_nowait("one_more")
 
 
 # --- Stats Tests ---

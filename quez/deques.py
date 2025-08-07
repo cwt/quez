@@ -237,6 +237,19 @@ class AsyncCompressedDeque(
         self._lock = threading.Lock()
         self._loop = self._get_running_loop()
 
+    def _serialize_and_compress(self, item: QItem) -> _QueueElement:
+        """Synchronously serialize and compress an item."""
+        raw_bytes = self.serializer.dumps(item)
+        compressed_bytes = self.compressor.compress(raw_bytes)
+        return _QueueElement(
+            compressed_data=compressed_bytes, raw_size=len(raw_bytes)
+        )
+
+    def _decompress_and_deserialize(self, element: _QueueElement) -> QItem:
+        """Synchronously decompress and deserialize an item."""
+        raw_bytes = self.compressor.decompress(element.compressed_data)
+        return self.serializer.loads(raw_bytes)
+
     def qsize(self) -> int:
         """
         Return the current size of the deque.
@@ -293,14 +306,8 @@ class AsyncCompressedDeque(
         loop = self._loop
         assert loop is not None, "Event loop not available"
 
-        raw_bytes = await loop.run_in_executor(
-            None, self.serializer.dumps, item
-        )
-        compressed_bytes = await loop.run_in_executor(
-            None, self.compressor.compress, raw_bytes
-        )
-        element = _QueueElement(
-            compressed_data=compressed_bytes, raw_size=len(raw_bytes)
+        element = await loop.run_in_executor(
+            None, self._serialize_and_compress, item
         )
 
         with self._stats_lock:
@@ -314,6 +321,33 @@ class AsyncCompressedDeque(
                 and len(self._queue) == self._queue.maxlen
             ):
                 evicted = self._queue[0]  # Leftmost item will be evicted
+            self._queue.append(element)
+            if evicted:
+                with self._stats_lock:
+                    self._total_raw_size -= evicted.raw_size
+                    self._total_compressed_size -= len(evicted.compressed_data)
+
+    def append_nowait(self, item: QItem) -> None:
+        """
+        Serialize, compress, and append an item to the right end of the deque
+        without blocking. This is a synchronous operation.
+
+        Args:
+            item (QItem): The item to serialize, compress, and append.
+        """
+        element = self._serialize_and_compress(item)
+
+        with self._stats_lock:
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
+
+        with self._lock:
+            evicted = None
+            if (
+                self._queue.maxlen is not None
+                and len(self._queue) == self._queue.maxlen
+            ):
+                evicted = self._queue[0]
             self._queue.append(element)
             if evicted:
                 with self._stats_lock:
@@ -334,14 +368,8 @@ class AsyncCompressedDeque(
         loop = self._loop
         assert loop is not None, "Event loop not available"
 
-        raw_bytes = await loop.run_in_executor(
-            None, self.serializer.dumps, item
-        )
-        compressed_bytes = await loop.run_in_executor(
-            None, self.compressor.compress, raw_bytes
-        )
-        element = _QueueElement(
-            compressed_data=compressed_bytes, raw_size=len(raw_bytes)
+        element = await loop.run_in_executor(
+            None, self._serialize_and_compress, item
         )
 
         with self._stats_lock:
@@ -355,6 +383,33 @@ class AsyncCompressedDeque(
                 and len(self._queue) == self._queue.maxlen
             ):
                 evicted = self._queue[-1]  # Rightmost item will be evicted
+            self._queue.appendleft(element)
+            if evicted:
+                with self._stats_lock:
+                    self._total_raw_size -= evicted.raw_size
+                    self._total_compressed_size -= len(evicted.compressed_data)
+
+    def appendleft_nowait(self, item: QItem) -> None:
+        """
+        Serialize, compress, and append an item to the left end of the deque
+        without blocking. This is a synchronous operation.
+
+        Args:
+            item (QItem): The item to serialize, compress, and append.
+        """
+        element = self._serialize_and_compress(item)
+
+        with self._stats_lock:
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
+
+        with self._lock:
+            evicted = None
+            if (
+                self._queue.maxlen is not None
+                and len(self._queue) == self._queue.maxlen
+            ):
+                evicted = self._queue[-1]
             self._queue.appendleft(element)
             if evicted:
                 with self._stats_lock:
@@ -383,12 +438,32 @@ class AsyncCompressedDeque(
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
-        raw_bytes = await loop.run_in_executor(
-            None, self.compressor.decompress, element.compressed_data
-        )
         item = await loop.run_in_executor(
-            None, self.serializer.loads, raw_bytes
+            None, self._decompress_and_deserialize, element
         )
+        return item
+
+    def pop_nowait(self) -> QItem:
+        """
+        Pop an item from the right end of the deque, decompress, and
+        deserialize it without blocking. This is a synchronous operation.
+
+        Returns:
+            QItem: The deserialized and decompressed item.
+
+        Raises:
+            IndexError: If the deque is empty.
+        """
+        with self._lock:
+            if len(self._queue) == 0:
+                raise IndexError("pop from an empty deque")
+            element = self._queue.pop()
+
+        with self._stats_lock:
+            self._total_raw_size -= element.raw_size
+            self._total_compressed_size -= len(element.compressed_data)
+
+        item = self._decompress_and_deserialize(element)
         return item
 
     async def popleft(self) -> QItem:
@@ -413,10 +488,30 @@ class AsyncCompressedDeque(
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
-        raw_bytes = await loop.run_in_executor(
-            None, self.compressor.decompress, element.compressed_data
-        )
         item = await loop.run_in_executor(
-            None, self.serializer.loads, raw_bytes
+            None, self._decompress_and_deserialize, element
         )
+        return item
+
+    def popleft_nowait(self) -> QItem:
+        """
+        Pop an item from the left end of the deque, decompress, and
+        deserialize it without blocking. This is a synchronous operation.
+
+        Returns:
+            QItem: The deserialized and decompressed item.
+
+        Raises:
+            IndexError: If the deque is empty.
+        """
+        with self._lock:
+            if len(self._queue) == 0:
+                raise IndexError("pop from an empty deque")
+            element = self._queue.popleft()
+
+        with self._stats_lock:
+            self._total_raw_size -= element.raw_size
+            self._total_compressed_size -= len(element.compressed_data)
+
+        item = self._decompress_and_deserialize(element)
         return item
