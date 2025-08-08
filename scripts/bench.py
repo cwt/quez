@@ -79,7 +79,7 @@ def get_available_compressors() -> List[Compressor]:
     Returns a list of all available compressors, including optional ones
     if they are installed.
     """
-    compressors = [
+    compressors: List[Compressor] = [
         NullCompressor(),
         ZlibCompressor(),
         Bz2Compressor(),
@@ -297,8 +297,8 @@ def main(num_items: int, data_size: int):
     # --- Print Results Table ---
     print("\n--- Benchmark Results ---\n")
     header = (
-        f"{'Data Structure':<30} | {'Compressor':<18} | {'Put Throughput':>18} | "
-        f"{'Get Throughput':>18} | {'Compressed Size':>18} | {'Ratio':>8}"
+        f"{ 'Data Structure':<30} | { 'Compressor':<18} | { 'Put Throughput':>18} | "
+        f"{ 'Get Throughput':>18} | { 'Compressed Size':>18} | { 'Ratio':>8}"
     )
     print(header)
     print("-" * len(header))

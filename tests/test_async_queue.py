@@ -136,7 +136,9 @@ async def test_put_get_nowait_roundtrip(compressor: Compressor):
 @pytest.mark.asyncio
 async def test_put_nowait_full(compressor: Compressor):
     """Test that put_nowait() raises asyncio.QueueFull when the queue is full."""
-    q: AsyncCompressedQueue = AsyncCompressedQueue(maxsize=1, compressor=compressor)
+    q: AsyncCompressedQueue = AsyncCompressedQueue(
+        maxsize=1, compressor=compressor
+    )
     q.put_nowait("full")
     with pytest.raises(asyncio.QueueFull):
         q.put_nowait("one_more")

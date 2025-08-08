@@ -276,7 +276,9 @@ async def test_popleft_nowait_empty(compressor: Compressor):
 @pytest.mark.asyncio
 async def test_nowait_eviction(compressor: Compressor):
     """Test that nowait append methods correctly evict items when full."""
-    q: AsyncCompressedDeque = AsyncCompressedDeque(maxsize=2, compressor=compressor)
+    q: AsyncCompressedDeque = AsyncCompressedDeque(
+        maxsize=2, compressor=compressor
+    )
     q.append_nowait("item1")
     q.append_nowait("item2")
     assert q.full()
