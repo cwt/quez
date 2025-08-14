@@ -67,7 +67,7 @@ class _BaseCompressedQueue(Generic[QItem, QueueType]):
             serializer if serializer is not None else PickleSerializer()
         )
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._stats_lock = threading.Lock()
+        self._stats_lock = threading.RLock()
         self._total_raw_size: int = 0
         self._total_compressed_size: int = 0
 

@@ -53,7 +53,6 @@ class CompressedDeque(
         )
         # Additional lock for deque operations, as deque is atomic but we need
         # to ensure consistency with stats and multi-step ops.
-        self._lock = threading.Lock()
 
     def qsize(self) -> int:
         """
@@ -65,7 +64,7 @@ class CompressedDeque(
         Returns:
             int: The number of items in the deque.
         """
-        with self._lock:
+        with self._stats_lock:
             return len(self._queue)
 
     def empty(self) -> bool:
@@ -79,12 +78,12 @@ class CompressedDeque(
         Returns:
             bool: True if the deque is empty, False otherwise.
         """
-        with self._lock:
+        with self._stats_lock:
             return len(self._queue) == 0
 
     def full(self) -> bool:
         """Return True if the deque is full (reached maxlen), False otherwise."""
-        with self._lock:
+        with self._stats_lock:
             return (
                 self._queue.maxlen is not None
                 and len(self._queue) == self._queue.maxlen
@@ -104,20 +103,18 @@ class CompressedDeque(
             compressed_data=compressed_bytes, raw_size=len(raw_bytes)
         )
 
-        # Lock for stats update
         with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        # Lock for deque operation
-        with self._lock:
             evicted = None
             if (
                 self._queue.maxlen is not None
                 and len(self._queue) == self._queue.maxlen
             ):
                 evicted = self._queue[0]  # Leftmost item will be evicted
+
             self._queue.append(element)
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
+
             if evicted:
                 self._total_raw_size -= evicted.raw_size
                 self._total_compressed_size -= len(evicted.compressed_data)
@@ -136,20 +133,18 @@ class CompressedDeque(
             compressed_data=compressed_bytes, raw_size=len(raw_bytes)
         )
 
-        # Lock for stats update.
         with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        # Lock for deque operation.
-        with self._lock:
             evicted = None
             if (
                 self._queue.maxlen is not None
                 and len(self._queue) == self._queue.maxlen
             ):
                 evicted = self._queue[-1]  # Rightmost item will be evicted
+
             self._queue.appendleft(element)
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
+
             if evicted:
                 self._total_raw_size -= evicted.raw_size
                 self._total_compressed_size -= len(evicted.compressed_data)
@@ -161,12 +156,8 @@ class CompressedDeque(
         Returns:
             QItem: The deserialized and decompressed item retrieved from the right end of the deque.
         """
-        # Lock for deque operation.
-        with self._lock:
-            element = self._queue.pop()
-
-        # Lock for stats update.
         with self._stats_lock:
+            element = self._queue.pop()
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
@@ -182,12 +173,8 @@ class CompressedDeque(
         Returns:
             QItem: The deserialized and decompressed item retrieved from the left end of the deque.
         """
-        # Lock for deque operation.
-        with self._lock:
-            element = self._queue.popleft()
-
-        # Lock for stats update.
         with self._stats_lock:
+            element = self._queue.popleft()
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
@@ -234,7 +221,6 @@ class AsyncCompressedDeque(
         super().__init__(
             collections.deque(maxlen=maxsize), compressor, serializer
         )
-        self._lock = threading.Lock()
         self._loop = self._get_running_loop()
 
     def _serialize_and_compress(self, item: QItem) -> _QueueElement:
@@ -260,7 +246,7 @@ class AsyncCompressedDeque(
         Returns:
             int: The number of items in the deque.
         """
-        with self._lock:
+        with self._stats_lock:
             return len(self._queue)
 
     def empty(self) -> bool:
@@ -273,7 +259,7 @@ class AsyncCompressedDeque(
         Returns:
             bool: True if the deque is empty, False otherwise.
         """
-        with self._lock:
+        with self._stats_lock:
             return len(self._queue) == 0
 
     def full(self) -> bool:
@@ -286,7 +272,7 @@ class AsyncCompressedDeque(
         Returns:
             bool: True if the deque is full, False otherwise.
         """
-        with self._lock:
+        with self._stats_lock:
             return (
                 self._queue.maxlen is not None
                 and len(self._queue) == self._queue.maxlen
@@ -311,10 +297,6 @@ class AsyncCompressedDeque(
         )
 
         with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        with self._lock:
             evicted = None
             if (
                 self._queue.maxlen is not None
@@ -322,10 +304,11 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[0]  # Leftmost item will be evicted
             self._queue.append(element)
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
             if evicted:
-                with self._stats_lock:
-                    self._total_raw_size -= evicted.raw_size
-                    self._total_compressed_size -= len(evicted.compressed_data)
+                self._total_raw_size -= evicted.raw_size
+                self._total_compressed_size -= len(evicted.compressed_data)
 
     def append_nowait(self, item: QItem) -> None:
         """
@@ -338,10 +321,6 @@ class AsyncCompressedDeque(
         element = self._serialize_and_compress(item)
 
         with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        with self._lock:
             evicted = None
             if (
                 self._queue.maxlen is not None
@@ -349,10 +328,11 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[0]
             self._queue.append(element)
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
             if evicted:
-                with self._stats_lock:
-                    self._total_raw_size -= evicted.raw_size
-                    self._total_compressed_size -= len(evicted.compressed_data)
+                self._total_raw_size -= evicted.raw_size
+                self._total_compressed_size -= len(evicted.compressed_data)
 
     async def appendleft(self, item: QItem) -> None:
         """
@@ -373,10 +353,6 @@ class AsyncCompressedDeque(
         )
 
         with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        with self._lock:
             evicted = None
             if (
                 self._queue.maxlen is not None
@@ -384,10 +360,11 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[-1]  # Rightmost item will be evicted
             self._queue.appendleft(element)
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
             if evicted:
-                with self._stats_lock:
-                    self._total_raw_size -= evicted.raw_size
-                    self._total_compressed_size -= len(evicted.compressed_data)
+                self._total_raw_size -= evicted.raw_size
+                self._total_compressed_size -= len(evicted.compressed_data)
 
     def appendleft_nowait(self, item: QItem) -> None:
         """
@@ -400,10 +377,6 @@ class AsyncCompressedDeque(
         element = self._serialize_and_compress(item)
 
         with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        with self._lock:
             evicted = None
             if (
                 self._queue.maxlen is not None
@@ -411,10 +384,11 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[-1]
             self._queue.appendleft(element)
+            self._total_raw_size += element.raw_size
+            self._total_compressed_size += len(element.compressed_data)
             if evicted:
-                with self._stats_lock:
-                    self._total_raw_size -= evicted.raw_size
-                    self._total_compressed_size -= len(evicted.compressed_data)
+                self._total_raw_size -= evicted.raw_size
+                self._total_compressed_size -= len(evicted.compressed_data)
 
     async def pop(self) -> QItem:
         """
@@ -429,12 +403,10 @@ class AsyncCompressedDeque(
         loop = self._loop
         assert loop is not None, "Event loop not available"
 
-        with self._lock:
+        with self._stats_lock:
             if len(self._queue) == 0:
                 raise IndexError("pop from an empty deque")
             element = self._queue.pop()
-
-        with self._stats_lock:
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
@@ -454,12 +426,10 @@ class AsyncCompressedDeque(
         Raises:
             IndexError: If the deque is empty.
         """
-        with self._lock:
+        with self._stats_lock:
             if len(self._queue) == 0:
                 raise IndexError("pop from an empty deque")
             element = self._queue.pop()
-
-        with self._stats_lock:
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
@@ -479,12 +449,10 @@ class AsyncCompressedDeque(
         loop = self._loop
         assert loop is not None, "Event loop not available"
 
-        with self._lock:
+        with self._stats_lock:
             if len(self._queue) == 0:
                 raise IndexError("pop from an empty deque")
             element = self._queue.popleft()
-
-        with self._stats_lock:
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
@@ -504,12 +472,10 @@ class AsyncCompressedDeque(
         Raises:
             IndexError: If the deque is empty.
         """
-        with self._lock:
+        with self._stats_lock:
             if len(self._queue) == 0:
                 raise IndexError("pop from an empty deque")
             element = self._queue.popleft()
-
-        with self._stats_lock:
             self._total_raw_size -= element.raw_size
             self._total_compressed_size -= len(element.compressed_data)
 
