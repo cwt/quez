@@ -4,6 +4,8 @@
 
 This library excels at managing large volumes of in-memory data, making it perfect for streaming data pipelines, logging systems, or high-throughput servers. It transparently compresses objects as they enter the data structure and decompresses them upon retrieval, slashing the memory footprint of in-flight data while maintaining a simple, familiar interface.
 
+[![Quez: A Compressed Python Queue](https://img.youtube.com/vi/8hrNnyV5TV4/0.jpg)](https://www.youtube.com/watch?v=8hrNnyV5TV4)
+
 ### **Key Features**
 
 * **Flexible Data Structures**: Provides both FIFO (Queue) and Deque (double-ended queue) implementations to support a variety of access patterns.
