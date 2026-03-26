@@ -3,8 +3,6 @@ Tests for optional compressors (zstd, lzo).
 These tests will be skipped if the required libraries are not installed.
 """
 
-import sys
-
 import pytest
 
 from quez import AsyncCompressedQueue, CompressedQueue
@@ -14,12 +12,12 @@ from quez import AsyncCompressedQueue, CompressedQueue
 # or via the third-party zstandard library
 _zstd_available = False
 try:
-    from compression import zstd  # Python 3.14+ built-in
+    from compression import zstd  # Python 3.14+ built-in  # noqa: F401
 
     _zstd_available = True
 except ImportError:
     try:
-        import zstandard  # type: ignore  # Third-party library
+        import zstandard  # type: ignore  # Third-party library  # noqa: F401
 
         _zstd_available = True
     except ImportError:

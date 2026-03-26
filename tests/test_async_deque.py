@@ -4,6 +4,7 @@ Tests for the asynchronous, asyncio-compatible AsyncCompressedDeque.
 
 import random
 import string
+
 import pytest
 import pytest_asyncio
 

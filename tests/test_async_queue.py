@@ -3,9 +3,9 @@ Tests for the asynchronous AsyncCompressedQueue.
 """
 
 import asyncio
+
 import pytest
 import pytest_asyncio
-import threading
 
 from quez import AsyncCompressedQueue
 from quez.compressors import (

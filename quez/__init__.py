@@ -17,13 +17,13 @@ from .compressors import (
     NullCompressor,
     ZlibCompressor,
 )
+from .deques import (
+    AsyncCompressedDeque,
+    CompressedDeque,
+)
 from .queues import (
     AsyncCompressedQueue,
     CompressedQueue,
-)
-from .deques import (
-    CompressedDeque,
-    AsyncCompressedDeque,
 )
 
 __all__ = [
@@ -42,14 +42,14 @@ __all__ = [
 
 # Conditionally expose optional compressors if they are available
 try:
-    from .compressors import ZstdCompressor
+    from .compressors import ZstdCompressor  # noqa: F401
 
     __all__.append("ZstdCompressor")
 except ImportError:
     pass
 
 try:
-    from .compressors import LzoCompressor
+    from .compressors import LzoCompressor  # noqa: F401
 
     __all__.append("LzoCompressor")
 except ImportError:

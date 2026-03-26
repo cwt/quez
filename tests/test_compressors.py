@@ -3,6 +3,7 @@ Tests for the standalone Compressor and Serializer implementations.
 """
 
 import pytest
+
 from quez.compressors import (
     Bz2Compressor,
     Compressor,

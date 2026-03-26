@@ -5,12 +5,11 @@ Core implementation of the synchronous and asynchronous compressed queues.
 import collections
 import threading
 
+from .base import QItem, _BaseCompressedQueue, _QueueElement
 from .compressors import (
     Compressor,
     Serializer,
 )
-
-from .base import QItem, _QueueElement, _BaseCompressedQueue
 
 
 # --- 1. The Synchronous Deque Implementation ---

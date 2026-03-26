@@ -4,11 +4,11 @@ for various compression algorithms. It also includes a Serializer protocol
 to handle the conversion between arbitrary Python objects and bytes.
 """
 
-from typing import Any, Protocol, runtime_checkable
 import bz2
 import lzma
 import pickle
 import zlib
+from typing import Any, Protocol, runtime_checkable
 
 
 # --- 1. Serializer Protocol and Default Implementation ---

@@ -194,7 +194,7 @@ def run_nowait_benchmark(
     """Runs a benchmark for a Quez data structure using _nowait methods."""
     # For async classes, we need to initialize them within a running loop.
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         q = queue_class(compressor=compressor)
     except RuntimeError:
         # If no loop is running, create one temporarily for initialization.
