@@ -139,12 +139,32 @@ class NullCompressor:
 
 # --- 3. Optional Compressors ---
 
-# ZstdCompressor is only available if the 'zstandard' library is installed.
+# ZstdCompressor is available via:
+# 1. Python 3.14+ built-in compression.zstd module (preferred)
+# 2. Third-party 'zstandard' library (fallback for older Python)
+_zstd_module = None
+
+# Try Python 3.14+ built-in zstd first
+try:
+    from compression import zstd  # type: ignore
+
+    _zstd_module = zstd
+except ImportError:
+    pass
+
+# Fall back to third-party zstandard library
 try:
     import zstandard  # type: ignore
 
+    _zstd_module = zstandard
+except ImportError:
+    pass
+
+# Define ZstdCompressor if either module is available
+if _zstd_module is not None:
+
     class ZstdCompressor:
-        """A high-speed compressor using the zstandard library."""
+        """A high-speed compressor using Zstandard compression."""
 
         def __init__(self, level: int = 3) -> None:
             """
@@ -152,20 +172,21 @@ try:
 
             The level can be between 1 (fastest) and 22 (best compression).
             If not specified, it defaults to 3, which is a good balance.
+            For Python 3.14+ using built-in compression.zstd, this maps to
+            compression_level parameter.
             """
             self.level = level
 
         def compress(self, data: bytes) -> bytes:
-            """Compresses the input bytes using zstandard and returns compressed bytes."""
-            return zstandard.compress(data, level=self.level)
+            """Compresses the input bytes using zstd and returns compressed bytes."""
+            if _zstd_module.__name__ == "compression.zstd":
+                return _zstd_module.compress(data, level=self.level)
+            else:  # zstandard library
+                return _zstd_module.compress(data, level=self.level)
 
         def decompress(self, data: bytes) -> bytes:
-            """Decompresses the input bytes using zstandard and returns original bytes."""
-            return zstandard.decompress(data)
-
-except ImportError:
-    # If zstandard is not installed, this class will not be defined.
-    pass
+            """Decompresses the input bytes using zstd and returns original bytes."""
+            return _zstd_module.decompress(data)
 
 
 # LzoCompressor is only available if the 'lzo' library is installed.

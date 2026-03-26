@@ -21,9 +21,20 @@ You can install the core library from PyPI:
 
     pip install quez
 
-To enable optional, high-performance compression backends, you can install them as extras. For example, to install with zstd support:
+### Optional Compression Backends
 
-    pip install quez[zstd]
+**ZstdCompressor** (Zstandard compression):
+
+* **Python 3.14+**: Zstandard compression is included in the Python standard library via `compression.zstd`. No extra installation needed!
+* **Python 3.10-3.13**: Install the zstandard library:
+
+      pip install quez[zstd]
+
+**LzoCompressor** (LZO compression):
+
+Requires the python-lzo library (available on all supported Python versions):
+
+    pip install quez[lzo]
 
 Or install with all optional compressors:
 
@@ -31,8 +42,8 @@ Or install with all optional compressors:
 
 Available extras:
 
-* zstd: Enables the ZstdCompressor.
-* lzo: Enables the LzoCompressor.
+* `zstd`: Enables ZstdCompressor on Python < 3.14 (included in Python 3.14+)
+* `lzo`: Enables LzoCompressor on all Python versions
 
 ## **Quick Start**
 
@@ -82,10 +93,12 @@ Use AsyncCompressedQueue in asyncio applications. The API mirrors asyncio.Queue.
 ```python
 import asyncio
 from quez import AsyncCompressedQueue
-from quez.compressors import ZstdCompressor # Requires `pip install quez[zstd]`
+from quez.compressors import ZstdCompressor
 
 async def main():
     # Using the high-speed Zstd compressor
+    # Note: Python 3.14+ has built-in support. For older versions, run:
+    # pip install quez[zstd]
     q = AsyncCompressedQueue(compressor=ZstdCompressor())
 
     await q.put({"request_id": "abc-123", "payload": "..."})

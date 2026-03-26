@@ -3,14 +3,35 @@ Tests for optional compressors (zstd, lzo).
 These tests will be skipped if the required libraries are not installed.
 """
 
+import sys
+
 import pytest
 
 from quez import AsyncCompressedQueue, CompressedQueue
 
-# --- Zstandard Tests (skipped if zstandard is not installed) ---
-zstandard = pytest.importorskip(
-    "zstandard", reason="zstandard library not found"
-)
+# --- Zstandard Tests ---
+# Zstd is available in Python 3.14+ via compression.zstd (built-in)
+# or via the third-party zstandard library
+_zstd_available = False
+try:
+    from compression import zstd  # Python 3.14+ built-in
+
+    _zstd_available = True
+except ImportError:
+    try:
+        import zstandard  # type: ignore  # Third-party library
+
+        _zstd_available = True
+    except ImportError:
+        pass
+
+# Skip all Zstd tests if neither module is available
+if not _zstd_available:
+    pytest.skip(
+        "Zstandard compression not available (install zstandard or use Python 3.14+)",
+        allow_module_level=True,
+    )
+
 from quez.compressors import ZstdCompressor  # type: ignore
 
 
