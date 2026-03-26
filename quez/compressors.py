@@ -181,10 +181,7 @@ if _zstd_module is not None:
         def compress(self, data: bytes) -> bytes:
             """Compresses the input bytes using zstd and returns compressed bytes."""
             zstd = cast(ModuleType, _zstd_module)
-            if zstd.__name__ == "compression.zstd":
-                return zstd.compress(data, level=self.level)
-            else:  # zstandard library
-                return zstd.compress(data, level=self.level)
+            return zstd.compress(data, level=self.level)
 
         def decompress(self, data: bytes) -> bytes:
             """Decompresses the input bytes using zstd and returns original bytes."""
