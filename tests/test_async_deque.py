@@ -299,3 +299,73 @@ async def test_nowait_eviction(compressor: Compressor):
     assert q.pop_nowait() == "item5"
     assert q.pop_nowait() == "item6"
     assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_append_pop_no_deadlock(compressor: Compressor):
+    """Test that concurrent append and pop operations don't cause deadlocks.
+
+    This test verifies the fix for a deadlock bug caused by nested lock
+    acquisition in append operations. Previously, _stats_lock was held,
+    then _lock was acquired, then _stats_lock was acquired again during
+    eviction, which could cause deadlocks with concurrent operations.
+    """
+    import asyncio
+
+    q: AsyncCompressedDeque = AsyncCompressedDeque(
+        maxsize=5, compressor=compressor
+    )
+
+    items_to_process = 10
+    pop_count = 0
+    lock = asyncio.Lock()
+
+    async def appender():
+        for i in range(items_to_process):
+            await q.append(f"item_{i}")
+            # Yield to allow interleaving
+            await asyncio.sleep(0)
+
+    async def popper():
+        nonlocal pop_count
+        while True:
+            async with lock:
+                if pop_count >= items_to_process:
+                    break
+            try:
+                await q.pop()
+                async with lock:
+                    pop_count += 1
+            except IndexError:
+                await asyncio.sleep(0)
+
+    # Run appender and popper concurrently with timeout
+    await asyncio.wait_for(asyncio.gather(appender(), popper()), timeout=30.0)
+
+    assert q.empty()
+    assert pop_count == items_to_process
+
+
+@pytest.mark.asyncio
+async def test_append_stats_consistency(compressor: Compressor):
+    """Test that stats remain consistent during concurrent append operations.
+
+    This test verifies that stats are only updated after items are
+    successfully added to the deque, preventing inconsistencies.
+    """
+    import asyncio
+
+    q: AsyncCompressedDeque = AsyncCompressedDeque(
+        maxsize=5, compressor=compressor
+    )
+
+    async def append_with_stats_check():
+        for i in range(20):
+            await q.append(f"item_{i}")
+            stats = q.stats
+            assert (
+                stats["count"] <= 5
+            ), f"Count exceeded maxsize: {stats['count']}"
+            assert stats["count"] >= 0, f"Count is negative: {stats['count']}"
+
+    await asyncio.wait_for(append_with_stats_check(), timeout=5.0)

@@ -69,12 +69,13 @@ class CompressedQueue(
             compressed_data=compressed_bytes, raw_size=len(raw_bytes)
         )
 
-        # Lock is required for thread-safe stat updates.
+        # Put first, then update stats only after successful insertion.
+        # This ensures stats remain consistent even if put() blocks.
+        self._queue.put(element, block=block, timeout=timeout)
+
         with self._stats_lock:
             self._total_raw_size += element.raw_size
             self._total_compressed_size += len(element.compressed_data)
-
-        self._queue.put(element, block=block, timeout=timeout)
 
     def get(self, block: bool = True, timeout: float | None = None) -> QItem:
         """
@@ -197,13 +198,15 @@ class AsyncCompressedQueue(
             None, self._serialize_and_compress, item
         )
 
+        # Put first, then update stats only after successful insertion.
+        # This ensures stats remain consistent even if put() blocks.
+        await self._queue.put(element)
+
         # Lock is required for thread-safe stat updates in case someone uses
         # this async Queue in a multi-threaded context.
         with self._stats_lock:
             self._total_raw_size += element.raw_size
             self._total_compressed_size += len(element.compressed_data)
-
-        await self._queue.put(element)
 
     def put_nowait(self, item: QItem) -> None:
         """
@@ -224,11 +227,12 @@ class AsyncCompressedQueue(
         # yielding to the event loop.
         element = self._serialize_and_compress(item)
 
+        # Put first, then update stats only after successful insertion.
+        self._queue.put_nowait(element)
+
         with self._stats_lock:
             self._total_raw_size += element.raw_size
             self._total_compressed_size += len(element.compressed_data)
-
-        self._queue.put_nowait(element)
 
     async def get(self) -> QItem:
         """

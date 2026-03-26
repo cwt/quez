@@ -285,3 +285,89 @@ def test_pop_popleft_empty(compressor: Compressor):
 
     with pytest.raises(IndexError, match="pop from an empty deque"):
         q.popleft()
+
+
+def test_append_stats_atomic_with_deque_operation(compressor: Compressor):
+    """Test that stats are updated atomically with deque append operations.
+
+    This test verifies the fix for a bug where stats were updated before
+    the item was actually added to the deque. For a bounded deque, append
+    operations evict old items, so we verify stats are correct after eviction.
+    """
+    q: CompressedDeque = CompressedDeque(maxsize=2, compressor=compressor)
+
+    from quez.compressors import PickleSerializer
+
+    serializer = PickleSerializer()
+
+    item1 = "a" * 100
+    item2 = "b" * 200
+    item3 = "c" * 300
+
+    raw1 = len(serializer.dumps(item1))
+    raw2 = len(serializer.dumps(item2))
+    raw3 = len(serializer.dumps(item3))
+
+    q.append(item1)
+    q.append(item2)
+    stats_before = q.stats
+    assert stats_before["count"] == 2
+    assert stats_before["raw_size_bytes"] == raw1 + raw2
+
+    # Append item3, which will evict item1
+    # Stats should be updated atomically (both add and remove in same lock)
+    q.append(item3)
+    stats_after = q.stats
+
+    # After eviction, we should have item2 and item3
+    assert stats_after["count"] == 2
+    assert (
+        stats_after["raw_size_bytes"] == raw2 + raw3
+    ), f"Expected raw_size={raw2 + raw3}, got {stats_after['raw_size_bytes']}"
+
+    # Verify the items are correct
+    assert q.popleft() == item2
+    assert q.popleft() == item3
+
+
+def test_eviction_stats_protection(compressor: Compressor):
+    """Test that eviction updates stats atomically and correctly.
+
+    This test verifies that when an item is evicted from a bounded deque,
+    both the new item's stats are added and the evicted item's stats are
+    subtracted atomically (both inside the same lock context).
+    """
+    q: CompressedDeque = CompressedDeque(maxsize=2, compressor=compressor)
+
+    item1 = "x" * 100
+    item2 = "y" * 200
+    item3 = "z" * 300
+
+    from quez.compressors import PickleSerializer
+
+    serializer = PickleSerializer()
+
+    raw1 = len(serializer.dumps(item1))
+    raw2 = len(serializer.dumps(item2))
+    raw3 = len(serializer.dumps(item3))
+    comp2 = len(compressor.compress(serializer.dumps(item2)))
+    comp3 = len(compressor.compress(serializer.dumps(item3)))
+
+    q.append(item1)
+    q.append(item2)
+    stats_before = q.stats
+    assert stats_before["count"] == 2
+    assert stats_before["raw_size_bytes"] == raw1 + raw2
+
+    # Append item3 which will evict item1
+    q.append(item3)
+    stats_after = q.stats
+
+    # Stats should be exactly correct (not temporarily inconsistent)
+    assert stats_after["count"] == 2
+    assert (
+        stats_after["raw_size_bytes"] == raw2 + raw3
+    ), f"Expected raw_size={raw2 + raw3}, got {stats_after['raw_size_bytes']}"
+    assert (
+        stats_after["compressed_size_bytes"] == comp2 + comp3
+    ), f"Expected compressed_size={comp2 + comp3}, got {stats_after['compressed_size_bytes']}"

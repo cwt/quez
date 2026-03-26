@@ -39,17 +39,13 @@ from quez import (
 # --- Helper Functions ---
 
 
-def generate_sample_data(
-    num_items: int, data_size: int
-) -> List[Dict[str, Any]]:
+def generate_sample_data(num_items: int, data_size: int) -> List[Dict[str, Any]]:
     """
     Generates a list of semi-realistic, compressible JSON-like objects.
     Instead of purely random data, it repeats a smaller chunk of random
     data to simulate patterns found in real-world payloads.
     """
-    print(
-        f"Generating {num_items:,} sample data items (each ~{data_size} bytes)..."
-    )
+    print(f"Generating {num_items:,} sample data items (each ~{data_size} bytes)...")
     samples = []
 
     # Create a repeatable chunk to make data compressible
@@ -103,7 +99,7 @@ def get_available_compressors() -> List[Compressor]:
 def format_size(size_bytes: int) -> str:
     """Formats bytes into a human-readable string (KB, MB)."""
     if size_bytes > 1024 * 1024:
-        return f"{size_bytes / (1024*1024):.2f} MB"
+        return f"{size_bytes / (1024 * 1024):.2f} MB"
     return f"{size_bytes / 1024:.2f} KB"
 
 
@@ -255,15 +251,11 @@ def main(num_items: int, data_size: int):
         comp_name = compressor.__class__.__name__
 
         # Sync Queue
-        sync_q_result = run_sync_benchmark(
-            CompressedQueue, compressor, sample_data
-        )
+        sync_q_result = run_sync_benchmark(CompressedQueue, compressor, sample_data)
         results.append(("CompressedQueue", comp_name, sync_q_result))
 
         # Sync Deque
-        sync_d_result = run_sync_benchmark(
-            CompressedDeque, compressor, sample_data
-        )
+        sync_d_result = run_sync_benchmark(CompressedDeque, compressor, sample_data)
         results.append(("CompressedDeque", comp_name, sync_d_result))
 
         # Async Queue
@@ -297,8 +289,8 @@ def main(num_items: int, data_size: int):
     # --- Print Results Table ---
     print("\n--- Benchmark Results ---\n")
     header = (
-        f"{ 'Data Structure':<30} | { 'Compressor':<18} | { 'Put Throughput':>18} | "
-        f"{ 'Get Throughput':>18} | { 'Compressed Size':>18} | { 'Ratio':>8}"
+        f"{'Data Structure':<30} | {'Compressor':<18} | {'Put Throughput':>18} | "
+        f"{'Get Throughput':>18} | {'Compressed Size':>18} | {'Ratio':>8}"
     )
     print(header)
     print("-" * len(header))
@@ -342,7 +334,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        import uvloop
+        import uvloop  # type: ignore[import-not-found]
     except ImportError:
         pass
     else:

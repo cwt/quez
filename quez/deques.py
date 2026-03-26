@@ -103,12 +103,7 @@ class CompressedDeque(
             compressed_data=compressed_bytes, raw_size=len(raw_bytes)
         )
 
-        # Lock for stats update
-        with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        # Lock for deque operation
+        # Lock for deque operation and stats update
         with self._lock:
             evicted = None
             if (
@@ -117,9 +112,13 @@ class CompressedDeque(
             ):
                 evicted = self._queue[0]  # Leftmost item will be evicted
             self._queue.append(element)
-            if evicted:
-                self._total_raw_size -= evicted.raw_size
-                self._total_compressed_size -= len(evicted.compressed_data)
+            # Update stats inside both locks to ensure consistency
+            with self._stats_lock:
+                self._total_raw_size += element.raw_size
+                self._total_compressed_size += len(element.compressed_data)
+                if evicted:
+                    self._total_raw_size -= evicted.raw_size
+                    self._total_compressed_size -= len(evicted.compressed_data)
 
     def appendleft(self, item: QItem) -> None:
         """
@@ -135,12 +134,7 @@ class CompressedDeque(
             compressed_data=compressed_bytes, raw_size=len(raw_bytes)
         )
 
-        # Lock for stats update.
-        with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
-        # Lock for deque operation.
+        # Lock for deque operation and stats update.
         with self._lock:
             evicted = None
             if (
@@ -149,9 +143,13 @@ class CompressedDeque(
             ):
                 evicted = self._queue[-1]  # Rightmost item will be evicted
             self._queue.appendleft(element)
-            if evicted:
-                self._total_raw_size -= evicted.raw_size
-                self._total_compressed_size -= len(evicted.compressed_data)
+            # Update stats inside both locks to ensure consistency.
+            with self._stats_lock:
+                self._total_raw_size += element.raw_size
+                self._total_compressed_size += len(element.compressed_data)
+                if evicted:
+                    self._total_raw_size -= evicted.raw_size
+                    self._total_compressed_size -= len(evicted.compressed_data)
 
     def pop(self) -> QItem:
         """
@@ -309,10 +307,6 @@ class AsyncCompressedDeque(
             None, self._serialize_and_compress, item
         )
 
-        with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
         with self._lock:
             evicted = None
             if (
@@ -321,8 +315,10 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[0]  # Leftmost item will be evicted
             self._queue.append(element)
-            if evicted:
-                with self._stats_lock:
+            with self._stats_lock:
+                self._total_raw_size += element.raw_size
+                self._total_compressed_size += len(element.compressed_data)
+                if evicted:
                     self._total_raw_size -= evicted.raw_size
                     self._total_compressed_size -= len(evicted.compressed_data)
 
@@ -336,10 +332,6 @@ class AsyncCompressedDeque(
         """
         element = self._serialize_and_compress(item)
 
-        with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
         with self._lock:
             evicted = None
             if (
@@ -348,8 +340,10 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[0]
             self._queue.append(element)
-            if evicted:
-                with self._stats_lock:
+            with self._stats_lock:
+                self._total_raw_size += element.raw_size
+                self._total_compressed_size += len(element.compressed_data)
+                if evicted:
                     self._total_raw_size -= evicted.raw_size
                     self._total_compressed_size -= len(evicted.compressed_data)
 
@@ -371,10 +365,6 @@ class AsyncCompressedDeque(
             None, self._serialize_and_compress, item
         )
 
-        with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
         with self._lock:
             evicted = None
             if (
@@ -383,8 +373,10 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[-1]  # Rightmost item will be evicted
             self._queue.appendleft(element)
-            if evicted:
-                with self._stats_lock:
+            with self._stats_lock:
+                self._total_raw_size += element.raw_size
+                self._total_compressed_size += len(element.compressed_data)
+                if evicted:
                     self._total_raw_size -= evicted.raw_size
                     self._total_compressed_size -= len(evicted.compressed_data)
 
@@ -398,10 +390,6 @@ class AsyncCompressedDeque(
         """
         element = self._serialize_and_compress(item)
 
-        with self._stats_lock:
-            self._total_raw_size += element.raw_size
-            self._total_compressed_size += len(element.compressed_data)
-
         with self._lock:
             evicted = None
             if (
@@ -410,8 +398,10 @@ class AsyncCompressedDeque(
             ):
                 evicted = self._queue[-1]
             self._queue.appendleft(element)
-            if evicted:
-                with self._stats_lock:
+            with self._stats_lock:
+                self._total_raw_size += element.raw_size
+                self._total_compressed_size += len(element.compressed_data)
+                if evicted:
                     self._total_raw_size -= evicted.raw_size
                     self._total_compressed_size -= len(evicted.compressed_data)
 

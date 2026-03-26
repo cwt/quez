@@ -8,7 +8,8 @@ import bz2
 import lzma
 import pickle
 import zlib
-from typing import Any, Protocol, runtime_checkable
+from types import ModuleType
+from typing import Any, Protocol, cast, runtime_checkable
 
 
 # --- 1. Serializer Protocol and Default Implementation ---
@@ -179,14 +180,16 @@ if _zstd_module is not None:
 
         def compress(self, data: bytes) -> bytes:
             """Compresses the input bytes using zstd and returns compressed bytes."""
-            if _zstd_module.__name__ == "compression.zstd":
-                return _zstd_module.compress(data, level=self.level)
+            zstd = cast(ModuleType, _zstd_module)
+            if zstd.__name__ == "compression.zstd":
+                return zstd.compress(data, level=self.level)
             else:  # zstandard library
-                return _zstd_module.compress(data, level=self.level)
+                return zstd.compress(data, level=self.level)
 
         def decompress(self, data: bytes) -> bytes:
             """Decompresses the input bytes using zstd and returns original bytes."""
-            return _zstd_module.decompress(data)
+            zstd = cast(ModuleType, _zstd_module)
+            return zstd.decompress(data)
 
 
 # LzoCompressor is only available if the 'lzo' library is installed.

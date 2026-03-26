@@ -189,6 +189,41 @@ async def test_concurrent_stats_access(compressor: Compressor):
     await asyncio.gather(put_items(), read_stats())
 
 
+@pytest.mark.asyncio
+async def test_put_nowait_stats_not_updated_on_queue_full(
+    compressor: Compressor,
+):
+    """Test that put_nowait does not update stats if QueueFull is raised.
+
+    This test verifies the fix for a bug where stats were updated before
+    the queue operation, meaning if put_nowait() raised QueueFull, the
+    stats would remain incorrectly incremented.
+    """
+    q: AsyncCompressedQueue = AsyncCompressedQueue(
+        maxsize=1, compressor=compressor
+    )
+    item = "a" * 100
+
+    q.put_nowait(item)
+    initial_stats = q.stats
+    assert initial_stats["count"] == 1
+
+    # Try to put another item - should raise QueueFull
+    with pytest.raises(asyncio.QueueFull):
+        q.put_nowait(item)
+
+    # Stats should not have changed
+    stats_after_failure = q.stats
+    assert stats_after_failure["count"] == 1
+    assert (
+        stats_after_failure["raw_size_bytes"] == initial_stats["raw_size_bytes"]
+    )
+    assert (
+        stats_after_failure["compressed_size_bytes"]
+        == initial_stats["compressed_size_bytes"]
+    )
+
+
 # --- Concurrency Tests ---
 @pytest.mark.asyncio
 async def test_join_functionality(compressor: Compressor):

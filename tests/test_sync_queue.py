@@ -141,6 +141,58 @@ def test_stats_calculation(compressor: Compressor):
     assert stats["compressed_size_bytes"] == 0
 
 
+def test_stats_consistency_during_blocking_put(compressor: Compressor):
+    """Test that stats remain consistent during blocking put operations.
+
+    When a put() call blocks on a full queue, stats should not count the item
+    until it actually enters the queue. This prevents the bug where stats show
+    the size of items not yet in the queue.
+    """
+    q: CompressedQueue = CompressedQueue(maxsize=1, compressor=compressor)
+    first_item = "a" * 100
+    second_item = "b" * 200
+
+    q.put(first_item)
+    first_stats = q.stats
+    assert first_stats["count"] == 1
+
+    second_put_started = threading.Event()
+    second_put_finished = threading.Event()
+
+    def put_blocking():
+        second_put_started.set()
+        q.put(second_item)
+        second_put_finished.set()
+
+    t = threading.Thread(target=put_blocking)
+    t.start()
+
+    # Wait for the blocking thread to start
+    second_put_started.wait(timeout=1.0)
+    time.sleep(0.1)
+
+    # While the second put is blocked, stats should only reflect the first item
+    blocking_stats = q.stats
+    assert (
+        blocking_stats["count"] == 1
+    ), "Count should still be 1 during blocking put"
+    assert (
+        blocking_stats["raw_size_bytes"] == first_stats["raw_size_bytes"]
+    ), "Stats should not include second item while blocking"
+
+    # Release the blocking put
+    q.get()
+    t.join(timeout=1.0)
+    second_put_finished.wait(timeout=0.5)
+
+    # Now stats should reflect the second item
+    final_stats = q.stats
+    assert final_stats["count"] == 1, "Queue should have 1 item"
+    assert (
+        final_stats["raw_size_bytes"] > first_stats["raw_size_bytes"]
+    ), "Final stats should include second item's size"
+
+
 # --- Concurrency and Threading Tests ---
 def test_join_functionality(compressor: Compressor):
     """Test that join() waits for all tasks to be done."""
