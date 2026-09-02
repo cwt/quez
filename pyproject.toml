@@ -16,11 +16,8 @@ lzo = ["python-lzo"]
 all = ["zstandard", "python-lzo"]
 
 [tool.poetry]
-homepage = "https://sr.ht/~cwt/quez/"
-repository = "https://hg.sr.ht/~cwt/quez"
-
-[tool.poetry.urls]
-"GitHub Mirror" = "https://github.com/cwt/quez"
+homepage = "https://github.com/cwt/quez"
+repository = "https://github.com/cwt/quez"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.15.0"
