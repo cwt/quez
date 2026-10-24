@@ -12,7 +12,9 @@ from quez import AsyncCompressedQueue, CompressedQueue
 # or via the third-party zstandard library
 _zstd_available = False
 try:
-    from compression import zstd  # Python 3.14+ built-in  # noqa: F401
+    # Python 3.14+ built-in. The ignore keeps mypy happy when it targets an
+    # older stdlib, where typeshed has no "compression" module.
+    from compression import zstd  # type: ignore[import-not-found]  # noqa: F401
 
     _zstd_available = True
 except ImportError:
