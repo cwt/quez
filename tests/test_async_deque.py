@@ -2,6 +2,7 @@
 Tests for the asynchronous, asyncio-compatible AsyncCompressedDeque.
 """
 
+import asyncio
 import random
 import string
 
@@ -369,3 +370,39 @@ async def test_append_stats_consistency(compressor: Compressor):
             assert stats["count"] >= 0, f"Count is negative: {stats['count']}"
 
     await asyncio.wait_for(append_with_stats_check(), timeout=5.0)
+
+
+# --- Event Loop Independence Tests ---
+def test_usable_before_any_event_loop():
+    """Test that the deque can be created and used before any loop exists.
+
+    The event loop is resolved lazily inside the async operations, so the
+    nowait methods must work even when no loop has ever started.
+    """
+    q: AsyncCompressedDeque = AsyncCompressedDeque()
+
+    q.appendleft_nowait("created-left")
+    q.append_nowait("created-right")
+
+    assert q.popleft_nowait() == "created-left"
+    assert q.pop_nowait() == "created-right"
+    assert q.empty()
+
+
+def test_reusable_across_asyncio_run_calls():
+    """Test that the deque survives consecutive asyncio.run() calls.
+
+    Regression test: the deque used to capture the event loop during
+    __init__, so a second asyncio.run() call failed with
+    "Event loop is closed".
+    """
+    q: AsyncCompressedDeque = AsyncCompressedDeque()
+
+    async def roundtrip(value: str) -> str:
+        await q.appendleft(value)
+        return await q.pop()
+
+    for value in ("first", "second"):
+        assert asyncio.run(roundtrip(value)) == value
+
+    assert q.empty()

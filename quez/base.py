@@ -66,14 +66,25 @@ class _BaseCompressedQueue(Generic[QItem, QueueType]):
         self.serializer = (
             serializer if serializer is not None else PickleSerializer()
         )
-        self._loop: asyncio.AbstractEventLoop | None = None
         self._stats_lock = threading.Lock()
         self._total_raw_size: int = 0
         self._total_compressed_size: int = 0
 
     def _get_running_loop(self) -> asyncio.AbstractEventLoop:
         """
-        Retrieves the current running asyncio event loop.
+        Retrieves the currently running asyncio event loop.
+
+        The loop is resolved lazily on every asynchronous operation instead
+        of being captured once at construction time. This lets objects be
+        created outside a loop and prevents "Event loop is closed" errors
+        caused by reusing a loop that has already ended.
+
+        Note:
+            This only guarantees that the wrapper uses the current loop.
+            The asyncio primitives inside ``AsyncCompressedQueue``
+            (``asyncio.Queue`` and its join ``Event``) still bind to the
+            first loop in which they have to wait; ``AsyncCompressedDeque``
+            has no such limitation.
 
         Returns:
             asyncio.AbstractEventLoop: The currently running event loop.
@@ -85,7 +96,7 @@ class _BaseCompressedQueue(Generic[QItem, QueueType]):
             return asyncio.get_running_loop()
         except RuntimeError as e:
             raise RuntimeError(
-                "AsyncCompressedQueue must be initialized within a running asyncio event loop."
+                "Asynchronous queues and deques must be used within a running asyncio event loop."
             ) from e
 
     @property

@@ -108,6 +108,37 @@ def test_get_blocking(compressor: Compressor):
         q.get(block=False)
 
 
+def test_nowait_roundtrip(compressor: Compressor):
+    """Test that the nowait methods roundtrip like their blocking variants."""
+    q: CompressedQueue = CompressedQueue(compressor=compressor)
+
+    q.put_nowait({"via": "nowait"})
+    assert q.get_nowait() == {"via": "nowait"}
+    assert q.empty()
+
+
+def test_get_nowait_raises_when_empty(compressor: Compressor):
+    """Test that get_nowait() raises queue.Empty instead of blocking."""
+    q: CompressedQueue = CompressedQueue(compressor=compressor)
+
+    with pytest.raises(queue.Empty):
+        q.get_nowait()
+
+
+def test_put_nowait_raises_when_full(compressor: Compressor):
+    """Test that put_nowait() raises queue.Full and leaves stats untouched."""
+    q: CompressedQueue = CompressedQueue(maxsize=1, compressor=compressor)
+    q.put_nowait("the only slot")
+    stats_before = q.stats
+
+    with pytest.raises(queue.Full):
+        q.put_nowait("overflow")
+
+    # The rejected item must not enter the queue nor affect stats.
+    assert q.qsize() == 1
+    assert q.stats == stats_before
+
+
 # --- Stats Tests ---
 def test_stats_calculation(compressor: Compressor):
     """Test that statistics are calculated correctly."""

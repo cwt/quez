@@ -224,15 +224,14 @@ class AsyncCompressedDeque(
             maxsize (int | None, optional): The maximum size of the deque. Defaults to None (unbounded).
             compressor (Compressor, optional): The compressor to use. Defaults to None (ZlibCompressor).
             serializer (Serializer, optional): The serializer to use. Defaults to None (PickleSerializer).
-
-        Raises:
-            RuntimeError: If initialized outside a running asyncio event loop.
         """
         super().__init__(
             collections.deque(maxlen=maxsize), compressor, serializer
         )
         self._lock = threading.Lock()
-        self._loop = self._get_running_loop()
+        # The event loop is resolved lazily inside each async operation, so
+        # the deque may be created anywhere and used across asyncio.run()
+        # calls. See _get_running_loop() in the base class for details.
 
     def _serialize_and_compress(self, item: QItem) -> _QueueElement:
         """Synchronously serialize and compress an item."""
@@ -300,8 +299,7 @@ class AsyncCompressedDeque(
         Args:
             item (QItem): The item to serialize, compress, and append to the deque.
         """
-        loop = self._loop
-        assert loop is not None, "Event loop not available"
+        loop = self._get_running_loop()
 
         element = await loop.run_in_executor(
             None, self._serialize_and_compress, item
@@ -358,8 +356,7 @@ class AsyncCompressedDeque(
         Args:
             item (QItem): The item to serialize, compress, and append to the left end of the deque.
         """
-        loop = self._loop
-        assert loop is not None, "Event loop not available"
+        loop = self._get_running_loop()
 
         element = await loop.run_in_executor(
             None, self._serialize_and_compress, item
@@ -415,8 +412,7 @@ class AsyncCompressedDeque(
         Raises:
             IndexError: If the deque is empty.
         """
-        loop = self._loop
-        assert loop is not None, "Event loop not available"
+        loop = self._get_running_loop()
 
         with self._lock:
             if len(self._queue) == 0:
@@ -465,8 +461,7 @@ class AsyncCompressedDeque(
         Raises:
             IndexError: If the deque is empty.
         """
-        loop = self._loop
-        assert loop is not None, "Event loop not available"
+        loop = self._get_running_loop()
 
         with self._lock:
             if len(self._queue) == 0:

@@ -254,21 +254,77 @@ async def test_join_functionality(compressor: Compressor):
     assert q.empty()
 
 
-def test_init_outside_of_loop():
-    """Test that instantiating raises RuntimeError if no loop is running."""
+def test_usable_before_any_event_loop():
+    """Test that the queue can be created and used before any loop exists.
+
+    The event loop is resolved lazily inside the async operations, so the
+    nowait methods must work even when no loop has ever started.
+    """
+    q: AsyncCompressedQueue = AsyncCompressedQueue()
+
+    q.put_nowait({"created": "outside"})
+    assert q.get_nowait() == {"created": "outside"}
+    assert q.empty()
+
+
+def test_reusable_across_asyncio_run_calls_without_waiting():
+    """Test that the queue survives consecutive asyncio.run() calls.
+
+    Regression test: the queue used to capture the event loop during
+    __init__, so a second asyncio.run() call failed with
+    "Event loop is closed". This holds only while put()/get() never wait,
+    because the underlying asyncio.Queue still binds to the first loop it
+    blocks on; see the limitation test below.
+    """
+    q: AsyncCompressedQueue = AsyncCompressedQueue()
+
+    async def roundtrip(value: str) -> str:
+        await q.put(value)
+        return await q.get()
+
+    for value in ("first", "second"):
+        assert asyncio.run(roundtrip(value)) == value
+
+    assert q.empty()
+
+
+def test_reuse_after_blocking_wait_is_loop_bound():
+    """Document the inherited loop binding of the underlying asyncio.Queue.
+
+    The wrapper resolves the loop lazily, but asyncio.Queue caches the loop
+    the first time put(), get(), or join() has to wait. Driving the queue
+    from another loop after that raises RuntimeError, so cross-loop reuse is
+    only safe while no operation ever blocks.
+    """
+    q: AsyncCompressedQueue = AsyncCompressedQueue(maxsize=1)
+    q.put_nowait("filler")
+
+    async def blocked_put() -> None:
+        try:
+            await asyncio.wait_for(q.put("does not fit"), timeout=0.05)
+        except (asyncio.TimeoutError, TimeoutError):
+            pass
+
+    # This wait binds the underlying asyncio.Queue to the first loop.
+    asyncio.run(blocked_put())
+
+    async def put_again() -> None:
+        await q.put("still does not fit")
+
+    with pytest.raises(RuntimeError, match="bound to a different event loop"):
+        asyncio.run(put_again())
+
+    # The rejected item must not have been enqueued.
+    assert q.qsize() == 1
+
+
+def test_async_methods_require_running_loop():
+    """Test that async operations still raise RuntimeError outside of a loop."""
+    q: AsyncCompressedQueue = AsyncCompressedQueue()
+    coroutine = q.put("no loop is running")
+
     with pytest.raises(
-        RuntimeError,
-        match="must be initialized within a running asyncio event loop",
+        RuntimeError, match="must be used within a running asyncio event loop"
     ):
-        # This needs to be run in a context where there is no event loop.
-        # Pytest-asyncio provides one, so we need to be creative.
-        # The easiest way is to try to get a loop inside the constructor call.
-        q = AsyncCompressedQueue()
-
-        # The error is raised on first async operation
-        async def run():
-            await q.put(1)
-
-        # Try to run in a new event loop, but the queue was created outside
-        with pytest.raises(RuntimeError):
-            asyncio.run(run())
+        # Drive the coroutine one step manually, as a running loop would.
+        coroutine.send(None)

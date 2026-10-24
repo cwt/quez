@@ -9,15 +9,29 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 
 [project.optional-dependencies]
 zstd = ["zstandard"]
 lzo = ["python-lzo"]
 all = ["zstandard", "python-lzo"]
 
-[tool.poetry]
-homepage = "https://github.com/cwt/quez"
-repository = "https://github.com/cwt/quez"
+[project.urls]
+Homepage = "https://github.com/cwt/quez"
+Repository = "https://github.com/cwt/quez"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.15.0"
@@ -26,9 +40,6 @@ ruff = "^0.15.0"
 pytest = "^9.0.0"
 pytest-asyncio = "^1.3.0"
 pytest-cov = "^7.1.0"
-# Add the optional dependencies for testing
-zstandard = {version = "*", optional = true}
-python-lzo = {version = "*", optional = true}
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

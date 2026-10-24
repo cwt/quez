@@ -106,6 +106,38 @@ class CompressedQueue(
 
         return item
 
+    def put_nowait(self, item: QItem) -> None:
+        """
+        Serialize, compress, and put an item onto the queue without blocking.
+
+        This method is equivalent to ``put(item, block=False)``. It serializes
+        and compresses the item synchronously, then attempts to place it into
+        the queue. Because it never waits, it raises immediately if there is
+        no free slot.
+
+        Args:
+            item (QItem): The item to serialize, compress, and put into the queue.
+
+        Raises:
+            queue.Full: If the queue is full.
+        """
+        self.put(item, block=False)
+
+    def get_nowait(self) -> QItem:
+        """
+        Get an item, decompress, deserialize, and return it without blocking.
+
+        This method is equivalent to ``get(block=False)``. It behaves like a
+        standard ``queue.Queue.get_nowait()``.
+
+        Returns:
+            QItem: The deserialized and decompressed item retrieved from the queue.
+
+        Raises:
+            queue.Empty: If the queue is empty.
+        """
+        return self.get(block=False)
+
     def task_done(self) -> None:
         """
         Indicate that a formerly enqueued task is complete.
@@ -136,6 +168,12 @@ class AsyncCompressedQueue(
     """
     An asyncio-compatible queue that transparently compresses any picklable
     object using pluggable compression and serialization strategies.
+
+    The queue may be constructed outside a running event loop because the
+    loop is resolved on every asynchronous operation. However, the underlying
+    ``asyncio.Queue`` binds itself to the first loop in which ``put()``,
+    ``get()``, or ``join()`` has to wait. Avoid moving a queue between event
+    loops after any blocking operation.
     """
 
     def __init__(
@@ -159,9 +197,13 @@ class AsyncCompressedQueue(
             serializer (Serializer, optional): The serializer to use. Defaults to None (PickleSerializer).
         """
         super().__init__(asyncio.Queue(maxsize), compressor, serializer)
-        # Eagerly get the loop during initialization. This ensures that the
-        # queue is associated with the loop it was created in.
-        self._loop = self._get_running_loop()
+        # The event loop is resolved lazily inside each async operation, so
+        # the queue may be created anywhere and reused across asyncio.run()
+        # calls as long as no operation has had to wait yet. Once put(),
+        # get(), or join() actually blocks, the underlying asyncio.Queue
+        # caches that loop and later calls from another loop fail with
+        # "bound to a different event loop". See the limitation test in
+        # tests/test_async_queue.py.
 
     def _serialize_and_compress(self, item: QItem) -> _QueueElement:
         """Synchronously serialize and compress an item."""
@@ -190,8 +232,7 @@ class AsyncCompressedQueue(
         Args:
             item (QItem): The item to serialize, compress, and put into the queue.
         """
-        loop = self._loop
-        assert loop is not None, "Event loop not available"
+        loop = self._get_running_loop()
 
         # Offload the entire CPU-bound operation to an executor.
         element = await loop.run_in_executor(
@@ -251,8 +292,7 @@ class AsyncCompressedQueue(
         Returns:
             QItem: The deserialized and decompressed item retrieved from the queue.
         """
-        loop = self._loop
-        assert loop is not None, "Event loop not available"
+        loop = self._get_running_loop()
 
         element = await self._queue.get()
 
