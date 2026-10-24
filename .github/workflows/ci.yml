@@ -35,7 +35,7 @@ jobs:
         run: poetry run mypy .
 
   test:
-    name: Test (Python ${{ matrix.python-version }}, extras: ${{ matrix.extras }})
+    name: "Test (Python ${{ matrix.python-version }}, extras: ${{ matrix.extras }})"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
